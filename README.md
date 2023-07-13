@@ -29,7 +29,7 @@ decode_packet(Binary) ->
 One of the key suggestions was to avoid **returning** the rest of the original binary for continued decoding,
 and instead combine the two into the same function clause:
 
-```
+```erlang
 decode(<<>>) -> ok;
 decode(<<Sz:8, Packet:Sz/binary, Rest/binary>>) ->
   dosomethingwith(Packet),
@@ -41,7 +41,7 @@ for longer streams. Why is that?
 
 If we put the first version in a module `stream_v1.erl` and compile it with `erlc +bin_opt_info` the compiler says:
 
-```
+```bash
 > erlc +bin_opt_info stream_v1.erl
 stream_v1.erl:28: Warning: BINARY CREATED: binary is returned from the function
 %   28| decode_packet(Binary) ->
@@ -49,7 +49,7 @@ stream_v1.erl:28: Warning: BINARY CREATED: binary is returned from the function
 
 but if we put the second version in `stream_v2.erl` and compile that the compiler tells us something different:
 
-```
+```erlang
 > erlc +bin_opt_info stream_v2.erl
 stream_v2.erl:26: Warning: OPTIMIZED: match context reused
 %   26|   decode(Rest).
@@ -76,7 +76,7 @@ an input binary is decomposed into a sequence of bit fields, and possibly a "res
 
 For example, the following will decompose a sequence of 8-bit bytes into a list of 4-bit nibbles:
 
-```
+```erlang
 nibbles(<<>>) -> [];
 nibbles(<<N:4,Rest/bitstring>>) -> [N | nibbles(Rest)].
 ...
@@ -104,7 +104,7 @@ as an Erlang term, a new sub binary is created from the match context with that 
 
 Here's `decode_packet/1` from above with annotations showing these actions:
 
-```
+```erlang
 decode_packet(Binary) ->
   %% At the start of this match, a match context is initialized from Binary.
   <<Sz:8, Packet:Sz/binary, Rest/binary>> = Binary,
@@ -125,7 +125,7 @@ match contexts are passed forward in tail-recursive function calls, but **not** 
 
 Here's the improved `decode/1` from above with annotations showing these actions:
 
-```
+```erlang
 %% On the initial call to decode/1, a match context is initialized from the input binary.
 %% On tail-calls from itself, the input is a match context ready to be used.
 decode(<<>>) -> ok;
@@ -158,7 +158,7 @@ as the Erlang term order of the two keys.
 wildcards (`'_'`) to the right in its structure sorts before the encoding of any term which is an instance
 of that pattern. For example, the following ordering relationships hold:
 
-```
+```erlang
 {1, a} < {1, b} < {2, a}
 encode({1, '_'}) < encode({1, a}) < encode({1, b}) < encode({2, a})
 ```
@@ -170,7 +170,7 @@ keys this allows us to implement **selects** on prefix keys efficiently.
 A decoder for encoded recursive terms would normally follow the recursive structure of the
 original term, e.g.:
 
-```
+```erlang
 -spec decode(binary()) -> term().
 decode(Bin) ->
   {Term, _Rest = <<>>} = decode_v1_term(Bin),
@@ -208,7 +208,7 @@ return values, is called **direct style**.
 
 For example, a function to sum the elements in a tree could be written as follows in direct style:
 
-```
+```erlang
 sum({Left, Right}) -> sum(Left) + sum(Right);
 sum(N) when is_integer(N) -> N.
 ```
@@ -225,7 +225,7 @@ sum_cps(N, Cont) when is_integer(N) -> Cont(N).
 
 To call a CPS function from conventional direct style code we need a shim and a dummy continuation:
 
-```
+```erlang
 sum(Tree) -> sum_cps(Tree, fun(V) -> V end).
 ```
 
@@ -234,7 +234,7 @@ in a way that (eventually) enables the match context reuse optimization.**
 
 Here's how the CPS decoder looks:
 
-```
+```erlang
 decode(Bin) -> % this is the shim between DS and CPS
   decode_v2_term(Bin, fun(_Rest = <<>>, Term) -> Term end).
 
@@ -266,7 +266,7 @@ In theory this version should allow match context reuse since the match contexts
 in tail-calls to functions that start with a binary match. However, compiling this version with `+bin_opt_info`
 shows some problems (this is just an excerpt):
 
-```
+```bash
 decode_v2.erl:43: Warning: BINARY CREATED: binary is used in call to {b_var,1} which doesn't support context reuse
 %   43|   Cont(Rest, []).
 
@@ -288,7 +288,7 @@ Our continuations are sequences of fragments, so we may represent them
 as lists where each element is an atom or tuple representing that fragment. If we apply this idea to the
 CPS decoder above we arrive at:
 
-```
+```erlang
 decode(Bin) -> % this is the shim between DS and CPS
   decode_v3_term(Bin, []).
 
@@ -321,7 +321,7 @@ decode_v3_list(<<Rest/binary>>, Cont) ->
 
 Compiling this version with `+bin_opt_info` shows that we finally are enabling match context reuse throughout:
 
-```
+```bash
 src/decode_v3.erl:34: Warning: OPTIMIZED: match context reused
 %   34|     <<?TAG_NIL:8, Rest/binary>> -> decode_v3_nil(Rest, Cont);
 
@@ -353,7 +353,7 @@ In this example there are only three possible shapes for a continuation:
 
 We can represent these as tuples, of size 0, 1, and 2, respectively, which leads to the fourth and final version:
 
-```
+```erlang
 -define(CONT_STOP, {}).
 -define(CONT_HD(Cont), {Cont}).
 -define(CONT_TL(Head, Cont), {Head, Cont}).
