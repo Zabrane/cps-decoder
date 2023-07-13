@@ -217,7 +217,7 @@ To rewrite this in continuation-passing style, we pass in an additional continua
 replace returns with tail-calls to the continuation, and replace recursive calls with tail-calls
 that pass in a new continuation:
 
-```
+```erlang
 sum_cps({Left, Right}, Cont) ->
   sum_cps(Left, fun(V1) -> sum_cps(Right, fun(V2) -> Cont(V1 + V2) end) end);
 sum_cps(N, Cont) when is_integer(N) -> Cont(N).
