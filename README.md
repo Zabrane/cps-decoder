@@ -14,7 +14,7 @@ their streaming packet decoder. Such decoders typically work by looking at leadi
 inspecting tag and/or size fields, extracting a sub binary ("the packet"), and then continuing to decode the
 rest of the original binary:
 
-```
+```erlang
 decode(<<>>) -> ok;
 decode(Binary) ->
   Rest = decode_packet(Binary),
